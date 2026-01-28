@@ -3,6 +3,12 @@
 namespace App\Providers;
 
 // use Illuminate\Support\Facades\Gate;
+use App\Models\Pin;
+use App\Models\Board;
+use App\Models\Comment;
+use App\Policies\PinPolicy;
+use App\Policies\BoardPolicy;
+use App\Policies\CommentPolicy;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 
 class AuthServiceProvider extends ServiceProvider
@@ -13,7 +19,9 @@ class AuthServiceProvider extends ServiceProvider
      * @var array<class-string, class-string>
      */
     protected $policies = [
-        // 'App\Models\Model' => 'App\Policies\ModelPolicy',
+        Pin::class => PinPolicy::class,
+        Board::class => BoardPolicy::class,
+        Comment::class => CommentPolicy::class,
     ];
 
     /**
