@@ -3,6 +3,12 @@
 @section('title', $pin->title . ' - Pin Detail')
 
 @section('content')
+
+@if(auth()->check())
+    <script>
+        window.userBoards = @json(auth()->user()->boards()->withCount('pins')->select('id', 'name')->get());
+    </script>
+@endif
 <div class="min-h-screen bg-gray-50">
     <!-- Header with back button -->
     <div class="bg-white shadow-sm sticky top-0 z-10">
@@ -103,7 +109,7 @@
 
                         <!-- Save to Board Button -->
                         <button
-                            onclick="showSaveBoardModal()"
+                            onclick="showSaveModal({{ $pin->id }}, '{{ addslashes($pin->title) }}', '{{ str_starts_with($pin->image_url, 'http') ? $pin->image_url : asset('storage/' . $pin->image_url) }}')"
                             class="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-full shadow-lg transition-all duration-200"
                         >
                             <i class="fas fa-bookmark text-lg"></i>
@@ -407,6 +413,119 @@ bg-white rounded-2xl p-6 shadow-sm">
     </div>
 </div>
 
+<!-- Save to Board Modal -->
+<div id="saveModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[80vh] overflow-hidden">
+        <!-- Modal Header -->
+        <div class="px-6 py-4 border-b border-gray-100">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-gray-900">Simpan ke papan</h3>
+                <button onclick="closeSaveModal()" class="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200">
+                    <i class="fas fa-times text-gray-500"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Modal Content -->
+        <div class="p-6">
+            <!-- Pin Preview -->
+            <div id="pinPreview" class="flex items-center space-x-3 mb-4 p-3 bg-gray-50 rounded-xl">
+                <!-- Will be populated by JavaScript -->
+            </div>
+
+            <!-- Search Boards -->
+            <div class="mb-4">
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fas fa-search text-gray-400 text-sm"></i>
+                    </div>
+                    <input
+                        type="text"
+                        id="boardSearch"
+                        placeholder="Cari papan"
+                        class="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        onkeyup="filterBoards()"
+                    >
+                </div>
+            </div>
+
+            <!-- Board List -->
+            <div class="space-y-2 max-h-64 overflow-y-auto" id="boardsList">
+                <!-- Loading state -->
+                <div id="boardsLoading" class="flex items-center justify-center py-8">
+                    <i class="fas fa-spinner fa-spin text-2xl text-gray-400"></i>
+                </div>
+            </div>
+
+            <!-- Create New Board -->
+            <div class="mt-4 pt-4 border-t border-gray-100">
+                <button
+                    onclick="showCreateBoard()"
+                    class="w-full flex items-center justify-center space-x-2 py-3 text-gray-700 hover:bg-gray-50 rounded-xl transition-colors duration-200"
+                >
+                    <i class="fas fa-plus text-sm"></i>
+                    <span>Buat papan</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Board Modal -->
+<div id="createBoardModal" class="fixed inset-0 bg-black bg-opacity-60 z-60 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full">
+        <!-- Modal Header -->
+        <div class="px-6 py-4 border-b border-gray-100">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-gray-900">Buat papan</h3>
+                <button onclick="closeCreateBoardModal()" class="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200">
+                    <i class="fas fa-times text-gray-500"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Create Board Form -->
+        <div class="p-6">
+            <form id="createBoardForm">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Nama papan</label>
+                    <input
+                        type="text"
+                        id="newBoardName"
+                        placeholder="Seperti 'Tempat yang ingin dikunjungi'"
+                        class="w-full px-3 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        required
+                    >
+                </div>
+
+                <div class="mb-6">
+                    <label class="flex items-center space-x-2">
+                        <input type="checkbox" id="isPrivate" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                        <span class="text-sm text-gray-700">Jadikan papan ini rahasia</span>
+                    </label>
+                    <p class="text-xs text-gray-500 mt-1">Hanya Anda yang bisa melihat papan rahasia</p>
+                </div>
+
+                <div class="flex space-x-3">
+                    <button
+                        type="button"
+                        onclick="closeCreateBoardModal()"
+                        class="flex-1 py-3 px-4 text-gray-700 hover:bg-gray-100 rounded-xl transition-colors duration-200"
+                    >
+                        Batal
+                    </button>
+                    <button
+                        type="submit"
+                        class="flex-1 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors duration-200"
+                    >
+                        Buat
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <style>
 /* Pinterest-style grid for related pins */
 .pinterest-grid {
@@ -554,22 +673,312 @@ function sharePin() {
     }
 }
 
-// Save to board modal
-function showSaveBoardModal() {
+// Save to Board Modal Functionality
+let currentPinId = null;
+let currentPinTitle = '';
+let currentPinImage = '';
+let allBoards = [];
+
+function showSaveModal(pinId, title, imageUrl) {
     @guest
         window.location.href = '{{ route("login") }}';
         return;
     @endguest
 
-    // Implementation for save to board functionality
-    alert('Fitur simpan ke board akan segera tersedia!');
+    currentPinId = pinId;
+    currentPinTitle = title;
+    currentPinImage = imageUrl;
+
+    // Show modal
+    document.getElementById('saveModal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+
+    // Update pin preview
+    updatePinPreview();
+
+    // Load boards
+    loadUserBoards();
 }
+
+function closeSaveModal() {
+    document.getElementById('saveModal').classList.add('hidden');
+    document.body.style.overflow = 'auto';
+    document.getElementById('boardSearch').value = '';
+}
+
+function updatePinPreview() {
+    const preview = document.getElementById('pinPreview');
+    preview.innerHTML = `
+        <img src="${currentPinImage}" alt="${currentPinTitle}" class="w-16 h-16 rounded-xl object-cover">
+        <div class="flex-1">
+            <p class="font-medium text-gray-900 line-clamp-2">${currentPinTitle}</p>
+        </div>
+    `;
+}
+
+async function loadUserBoards() {
+    const boardsList = document.getElementById('boardsList');
+    const loading = document.getElementById('boardsLoading');
+
+    try {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]');
+        if (!csrfToken) {
+            throw new Error('CSRF token not found');
+        }
+
+        // Use inline boards data if available
+        if (window.userBoards) {
+            allBoards = window.userBoards;
+            loading.style.display = 'none';
+            renderBoards(allBoards);
+            console.log('Using inline boards data:', allBoards); // Debug log
+            return;
+        }
+
+        // Fallback to API call
+        const response = await fetch('{{ route("api.boards.select") }}', {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken.getAttribute('content'),
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin'
+        });
+
+        console.log('Response status:', response.status); // Debug log
+
+        if (response.status === 401) {
+            // Redirect to login if unauthenticated
+            window.location.href = '{{ route("login") }}';
+            return;
+        }
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Response error:', errorText);
+            throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        console.log('Boards loaded:', data); // Debug log
+
+        if (data.error) {
+            throw new Error(data.message || 'Failed to load boards');
+        }
+
+        allBoards = Array.isArray(data) ? data : [];
+
+        loading.style.display = 'none';
+        renderBoards(allBoards);
+
+    } catch (error) {
+        console.error('Error loading boards:', error);
+        loading.style.display = 'none';
+        boardsList.innerHTML = '<p class="text-gray-500 text-center">Gagal memuat papan</p>';
+    }
+}
+
+function renderBoards(boards) {
+    const boardsList = document.getElementById('boardsList');
+
+    if (boards.length === 0) {
+        boardsList.innerHTML = `
+            <div class="text-center py-8">
+                <i class="fas fa-th-large text-3xl text-gray-300 mb-2"></i>
+                <p class="text-gray-500 text-sm">Belum ada papan</p>
+                <p class="text-gray-400 text-xs">Buat papan pertama Anda</p>
+            </div>
+        `;
+        return;
+    }
+
+    boardsList.innerHTML = boards.map(board => `
+        <div class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl cursor-pointer transition-colors duration-200" onclick="savePinToBoard(${board.id})">
+            <div class="flex items-center space-x-3">
+                <div class="w-12 h-12 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-th-large text-white"></i>
+                </div>
+                <div>
+                    <p class="font-medium text-gray-900">${board.name}</p>
+                    <p class="text-sm text-gray-500">${board.pins_count || 0} pin</p>
+                </div>
+            </div>
+            <i class="fas fa-chevron-right text-gray-400"></i>
+        </div>
+    `).join('');
+}
+
+function filterBoards() {
+    const search = document.getElementById('boardSearch').value.toLowerCase();
+    const filteredBoards = allBoards.filter(board =>
+        board.name.toLowerCase().includes(search)
+    );
+    renderBoards(filteredBoards);
+}
+
+async function savePinToBoard(boardId) {
+    try {
+        const response = await fetch(`/pins/${currentPinId}/save-to-board`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: JSON.stringify({ board_id: boardId })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Show success message
+            showToast('Pin berhasil disimpan!', 'success');
+            closeSaveModal();
+        } else {
+            showToast(data.message || 'Gagal menyimpan pin', 'error');
+        }
+
+    } catch (error) {
+        console.error('Error saving pin:', error);
+        showToast('Terjadi kesalahan saat menyimpan', 'error');
+    }
+}
+
+// Create Board Modal Functions
+function showCreateBoard() {
+    // Hide save modal first
+    document.getElementById('saveModal').classList.add('hidden');
+    // Show create board modal
+    document.getElementById('createBoardModal').classList.remove('hidden');
+}
+
+function closeCreateBoardModal() {
+    document.getElementById('createBoardModal').classList.add('hidden');
+    document.getElementById('createBoardForm').reset();
+    // Show save modal again
+    document.getElementById('saveModal').classList.remove('hidden');
+}
+
+// Toast notification function
+function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
+    const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+
+    toast.className = `fixed bottom-4 right-4 ${bgColor} text-white px-6 py-3 rounded-xl shadow-lg z-50 transform translate-y-0 opacity-100 transition-all duration-300`;
+    toast.innerHTML = `
+        <div class="flex items-center space-x-2">
+            <i class="fas ${icon}"></i>
+            <span>${message}</span>
+        </div>
+    `;
+
+    document.body.appendChild(toast);
+
+    // Auto remove after 3 seconds
+    setTimeout(() => {
+        toast.style.transform = 'translateY(100%)';
+        toast.style.opacity = '0';
+        setTimeout(() => {
+            if (document.body.contains(toast)) {
+                document.body.removeChild(toast);
+            }
+        }, 300);
+    }, 3000);
+}
+
+// Handle create board form submission
+document.getElementById('createBoardForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const name = document.getElementById('newBoardName').value.trim();
+    const isPrivate = document.getElementById('isPrivate').checked;
+
+    if (!name) return;
+
+    try {
+        const response = await fetch('{{ route("boards.store") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                name: name,
+                is_private: isPrivate
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Create board error:', errorText);
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('Create board response:', data); // Debug log
+
+        if (data.success) {
+            showToast('Papan berhasil dibuat!', 'success');
+
+            // Close create board modal
+            document.getElementById('createBoardModal').classList.add('hidden');
+            document.getElementById('createBoardForm').reset();
+
+            // Show save modal again
+            document.getElementById('saveModal').classList.remove('hidden');
+
+            // Add new board to boards list
+            if (data.board) {
+                allBoards.push({
+                    id: data.board.id,
+                    name: data.board.name,
+                    pins_count: 0
+                });
+                // Update window.userBoards if it exists
+                if (window.userBoards) {
+                    window.userBoards.push({
+                        id: data.board.id,
+                        name: data.board.name,
+                        pins_count: 0
+                    });
+                }
+            }
+
+            // Auto save pin to new board
+            if (currentPinId && data.board && data.board.id) {
+                setTimeout(() => {
+                    savePinToBoard(data.board.id);
+                }, 300);
+            }
+        } else {
+            showToast(data.message || 'Gagal membuat papan', 'error');
+        }
+
+    } catch (error) {
+        console.error('Error creating board:', error);
+        showToast('Terjadi kesalahan saat membuat papan', 'error');
+    }
+});
 
 // Close modals with escape key
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
-        closeImageModal();
-        closeDeleteModal();
+        const createBoardModal = document.getElementById('createBoardModal');
+        const saveModal = document.getElementById('saveModal');
+
+        if (!createBoardModal.classList.contains('hidden')) {
+            closeCreateBoardModal();
+        } else if (!saveModal.classList.contains('hidden')) {
+            closeSaveModal();
+        } else {
+            closeImageModal();
+            closeDeleteModal();
+        }
     }
 });
 
@@ -584,6 +993,19 @@ document.getElementById('imageModal').addEventListener('click', function(e) {
 document.getElementById('deleteModal').addEventListener('click', function(e) {
     if (e.target === this) {
         closeDeleteModal();
+    }
+});
+
+// Close save modal when clicking outside
+document.getElementById('saveModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeSaveModal();
+    }
+});
+
+document.getElementById('createBoardModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeCreateBoardModal();
     }
 });
 </script>

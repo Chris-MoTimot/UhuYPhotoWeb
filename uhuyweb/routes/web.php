@@ -132,6 +132,12 @@ Route::middleware(["auth"])->group(function () {
         App\Http\Controllers\PinController::class,
         "getByBoard",
     ])->name("api.boards.pins");
+
+    // Save pin to board
+    Route::post("/pins/{pin}/save-to-board", [
+        App\Http\Controllers\PinController::class,
+        "saveToBoard",
+    ])->name("pins.save-to-board");
 });
 
 // Public Routes

@@ -46,12 +46,39 @@ class BoardController extends Controller
             "is_private" => "boolean",
         ]);
 
-        Board::create([
-            "user_id" => Auth::id(),
-            "name" => $request->name,
-            "description" => $request->description,
-            "is_private" => $request->boolean("is_private", false),
-        ]);
+        try {
+            $board = Board::create([
+                "user_id" => Auth::id(),
+                "name" => $request->name,
+                "description" => $request->description,
+                "is_private" => $request->boolean("is_private", false),
+            ]);
+
+            // Handle JSON response for AJAX requests
+            if ($request->expectsJson()) {
+                return response()->json([
+                    "success" => true,
+                    "message" => "Board berhasil dibuat!",
+                    "board" => $board,
+                ]);
+            }
+        } catch (\Exception $e) {
+            \Log::error("Error creating board: " . $e->getMessage());
+
+            if ($request->expectsJson()) {
+                return response()->json(
+                    [
+                        "success" => false,
+                        "message" => "Gagal membuat board. Silakan coba lagi.",
+                    ],
+                    500,
+                );
+            }
+
+            return redirect()
+                ->route("boards.create")
+                ->with("error", "Gagal membuat board. Silakan coba lagi.");
+        }
 
         return redirect()
             ->route("boards.index")
@@ -146,8 +173,33 @@ class BoardController extends Controller
      */
     public function getBoardsForSelect()
     {
-        $boards = Auth::user()->boards()->select("id", "name")->get();
+        try {
+            if (!Auth::check()) {
+                return response()->json(
+                    [
+                        "error" => "Unauthorized",
+                        "message" => "User not authenticated",
+                    ],
+                    401,
+                );
+            }
 
-        return response()->json($boards);
+            $boards = Auth::user()
+                ->boards()
+                ->withCount("pins")
+                ->select("id", "name")
+                ->get();
+
+            return response()->json($boards);
+        } catch (\Exception $e) {
+            \Log::error("Error fetching boards: " . $e->getMessage());
+            return response()->json(
+                [
+                    "error" => "Server Error",
+                    "message" => "Failed to fetch boards",
+                ],
+                500,
+            );
+        }
     }
 }

@@ -246,4 +246,52 @@ class PinController extends Controller
         // Pastikan path view sesuai dengan folder Anda: resources/views/explore/explore.blade.php
         return view("explore.explore", compact("pins"));
     }
+
+    /**
+     * Save pin to board
+     */
+    public function saveToBoard(Request $request, Pin $pin)
+    {
+        $request->validate([
+            "board_id" => "required|exists:boards,id",
+        ]);
+
+        $board = Board::where("id", $request->board_id)
+            ->where("user_id", Auth::id())
+            ->first();
+
+        if (!$board) {
+            return response()->json(
+                [
+                    "success" => false,
+                    "message" => "Board tidak ditemukan atau bukan milik Anda",
+                ],
+                403,
+            );
+        }
+
+        // Check if pin already saved to this board
+        if ($pin->board_id == $board->id) {
+            return response()->json([
+                "success" => false,
+                "message" => "Pin sudah ada di board ini",
+            ]);
+        }
+
+        // Create a copy of the pin for the user's board
+        $newPin = Pin::create([
+            "user_id" => Auth::id(),
+            "board_id" => $board->id,
+            "title" => $pin->title,
+            "description" => $pin->description,
+            "image_url" => $pin->image_url,
+            "link" => $pin->link,
+        ]);
+
+        return response()->json([
+            "success" => true,
+            "message" => "Pin berhasil disimpan ke board",
+            "board" => $board,
+        ]);
+    }
 }
