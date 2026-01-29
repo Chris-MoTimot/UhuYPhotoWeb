@@ -13,7 +13,7 @@
 
                 <!-- Main Navigation -->
                 <div class="hidden md:flex items-center space-x-6">
-                    <a href="{{ route('explore.explore') }}" class="flex items-center px-3 py-2 rounded-full text-gray-700 hover:bg-gray-100 transition-colors duration-200 {{ request()->routeIs('home') ? 'bg-gray-100 font-semibold' : '' }}">
+                    <a href="{{ route('explore.explore') }}" class="flex items-center px-3 py-2 rounded-full text-gray-700 hover:bg-gray-100 transition-colors duration-200 {{ request()->routeIs('explore.explore') ? 'bg-gray-100 font-semibold' : '' }}">
                         <i class="fas fa-compass mr-2"></i>
                         Explore
                     </a>

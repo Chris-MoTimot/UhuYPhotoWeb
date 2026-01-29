@@ -3,6 +3,7 @@
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\AuthController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
 
 /*
 |--------------------------------------------------------------------------
@@ -16,12 +17,20 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get("/", function () {
+    if (Auth::check()) {
+        return redirect()->route("explore.explore");
+    }
     return view("welcome");
 })->name("home");
 
 Route::get("/welcome", function () {
     return view("welcome");
 })->name("welcome");
+
+Route::get("/explore", [
+    \App\Http\Controllers\ExploreController::class,
+    "index",
+])->name("explore.explore");
 
 Route::get("/login", function () {
     return view("auth.login");
@@ -130,8 +139,3 @@ Route::get("/search", [
     App\Http\Controllers\PinController::class,
     "search",
 ])->name("pins.search");
-
-Route::get("/explore", [
-    App\Http\Controllers\PinController::class, 
-    "explore"
-])->name("explore.explore");

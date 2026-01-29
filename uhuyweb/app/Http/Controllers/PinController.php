@@ -13,7 +13,7 @@ class PinController extends Controller
 {
     public function __construct()
     {
-        $this->middleware('auth');
+        $this->middleware("auth");
     }
 
     /**
@@ -21,8 +21,8 @@ class PinController extends Controller
      */
     public function myPins()
     {
-        $pins = Auth::user()->pins()->with('board')->latest()->paginate(12);
-        return view('pins.my-pins', compact('pins'));
+        $pins = Auth::user()->pins()->with("board")->latest()->paginate(12);
+        return view("pins.my-pins", compact("pins"));
     }
 
     /**
@@ -31,7 +31,7 @@ class PinController extends Controller
     public function create()
     {
         $boards = Auth::user()->boards;
-        return view('pins.create', compact('boards'));
+        return view("pins.create", compact("boards"));
     }
 
     /**
@@ -40,38 +40,44 @@ class PinController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'title' => 'required|max:255',
-            'description' => 'nullable|max:1000',
-            'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:5120', // 5MB max
-            'board_id' => 'required|exists:boards,id',
-            'link' => 'nullable|url'
+            "title" => "required|max:255",
+            "description" => "nullable|max:1000",
+            "image" => "required|image|mimes:jpeg,png,jpg,gif|max:5120", // 5MB max
+            "board_id" => "required|exists:boards,id",
+            "link" => "nullable|url",
         ]);
 
-        // Check if board belongs to user
-        $board = Board::where('id', $request->board_id)
-                     ->where('user_id', Auth::id())
-                     ->firstOrFail();
+        // Check if board belongs to user1
+        $board = Board::where("id", $request->board_id)
+            ->where("user_id", Auth::id())
+            ->firstOrFail();
 
         // Upload image
         $imagePath = null;
-        if ($request->hasFile('image')) {
-            $image = $request->file('image');
-            $imageName = time() . '_' . Str::random(10) . '.' . $image->getClientOriginalExtension();
-            $imagePath = $image->storeAs('pins', $imageName, 'public');
+        if ($request->hasFile("image")) {
+            $image = $request->file("image");
+            $imageName =
+                time() .
+                "_" .
+                Str::random(10) .
+                "." .
+                $image->getClientOriginalExtension();
+            $imagePath = $image->storeAs("pins", $imageName, "public");
         }
 
         // Create pin
         $pin = Pin::create([
-            'user_id' => Auth::id(),
-            'board_id' => $request->board_id,
-            'title' => $request->title,
-            'description' => $request->description,
-            'image_url' => $imagePath,
-            'link' => $request->link
+            "user_id" => Auth::id(),
+            "board_id" => $request->board_id,
+            "title" => $request->title,
+            "description" => $request->description,
+            "image_url" => $imagePath,
+            "link" => $request->link,
         ]);
 
-        return redirect()->route('pins.my-pins')
-                        ->with('success', 'Pin berhasil dibuat!');
+        return redirect()
+            ->route("pins.my-pins")
+            ->with("success", "Pin berhasil dibuat!");
     }
 
     /**
@@ -79,8 +85,8 @@ class PinController extends Controller
      */
     public function show(Pin $pin)
     {
-        $pin->load('user', 'board', 'comments.user', 'likes');
-        return view('pins.show', compact('pin'));
+        $pin->load("user", "board", "comments.user", "likes");
+        return view("pins.show", compact("pin"));
     }
 
     /**
@@ -94,7 +100,7 @@ class PinController extends Controller
         }
 
         $boards = Auth::user()->boards;
-        return view('pins.edit', compact('pin', 'boards'));
+        return view("pins.edit", compact("pin", "boards"));
     }
 
     /**
@@ -108,43 +114,52 @@ class PinController extends Controller
         }
 
         $request->validate([
-            'title' => 'required|max:255',
-            'description' => 'nullable|max:1000',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:5120',
-            'board_id' => 'required|exists:boards,id',
-            'link' => 'nullable|url'
+            "title" => "required|max:255",
+            "description" => "nullable|max:1000",
+            "image" => "nullable|image|mimes:jpeg,png,jpg,gif|max:5120",
+            "board_id" => "required|exists:boards,id",
+            "link" => "nullable|url",
         ]);
 
         // Check if board belongs to user
-        $board = Board::where('id', $request->board_id)
-                     ->where('user_id', Auth::id())
-                     ->firstOrFail();
+        $board = Board::where("id", $request->board_id)
+            ->where("user_id", Auth::id())
+            ->firstOrFail();
 
         $updateData = [
-            'board_id' => $request->board_id,
-            'title' => $request->title,
-            'description' => $request->description,
-            'link' => $request->link
+            "board_id" => $request->board_id,
+            "title" => $request->title,
+            "description" => $request->description,
+            "link" => $request->link,
         ];
 
         // Handle image upload if new image provided
-        if ($request->hasFile('image')) {
+        if ($request->hasFile("image")) {
             // Delete old image
-            if ($pin->image_url && Storage::disk('public')->exists($pin->image_url)) {
-                Storage::disk('public')->delete($pin->image_url);
+            if (
+                $pin->image_url &&
+                Storage::disk("public")->exists($pin->image_url)
+            ) {
+                Storage::disk("public")->delete($pin->image_url);
             }
 
             // Upload new image
-            $image = $request->file('image');
-            $imageName = time() . '_' . Str::random(10) . '.' . $image->getClientOriginalExtension();
-            $imagePath = $image->storeAs('pins', $imageName, 'public');
-            $updateData['image_url'] = $imagePath;
+            $image = $request->file("image");
+            $imageName =
+                time() .
+                "_" .
+                Str::random(10) .
+                "." .
+                $image->getClientOriginalExtension();
+            $imagePath = $image->storeAs("pins", $imageName, "public");
+            $updateData["image_url"] = $imagePath;
         }
 
         $pin->update($updateData);
 
-        return redirect()->route('pins.my-pins')
-                        ->with('success', 'Pin berhasil diupdate!');
+        return redirect()
+            ->route("pins.my-pins")
+            ->with("success", "Pin berhasil diupdate!");
     }
 
     /**
@@ -158,14 +173,18 @@ class PinController extends Controller
         }
 
         // Delete image file
-        if ($pin->image_url && Storage::disk('public')->exists($pin->image_url)) {
-            Storage::disk('public')->delete($pin->image_url);
+        if (
+            $pin->image_url &&
+            Storage::disk("public")->exists($pin->image_url)
+        ) {
+            Storage::disk("public")->delete($pin->image_url);
         }
 
         $pin->delete();
 
-        return redirect()->route('pins.my-pins')
-                        ->with('success', 'Pin berhasil dihapus!');
+        return redirect()
+            ->route("pins.my-pins")
+            ->with("success", "Pin berhasil dihapus!");
     }
 
     /**
@@ -175,7 +194,7 @@ class PinController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->likedPins()->where('pin_id', $pin->id)->exists()) {
+        if ($user->likedPins()->where("pin_id", $pin->id)->exists()) {
             $user->likedPins()->detach($pin->id);
             $liked = false;
         } else {
@@ -186,8 +205,8 @@ class PinController extends Controller
         $likesCount = $pin->likes()->count();
 
         return response()->json([
-            'liked' => $liked,
-            'likes_count' => $likesCount
+            "liked" => $liked,
+            "likes_count" => $likesCount,
         ]);
     }
 
@@ -196,15 +215,15 @@ class PinController extends Controller
      */
     public function search(Request $request)
     {
-        $query = $request->get('q', '');
+        $query = $request->get("q", "");
 
-        $pins = Pin::where('title', 'LIKE', "%{$query}%")
-                   ->orWhere('description', 'LIKE', "%{$query}%")
-                   ->with('user', 'board')
-                   ->latest()
-                   ->paginate(12);
+        $pins = Pin::where("title", "LIKE", "%{$query}%")
+            ->orWhere("description", "LIKE", "%{$query}%")
+            ->with("user", "board")
+            ->latest()
+            ->paginate(12);
 
-        return view('pins.search', compact('pins', 'query'));
+        return view("pins.search", compact("pins", "query"));
     }
 
     /**
@@ -212,7 +231,7 @@ class PinController extends Controller
      */
     public function getByBoard(Board $board)
     {
-        $pins = $board->pins()->with('user')->latest()->get();
+        $pins = $board->pins()->with("user")->latest()->get();
 
         return response()->json($pins);
     }
@@ -220,11 +239,11 @@ class PinController extends Controller
     // app/Http/Controllers/PinController.php
     public function explore()
     {
-        // Mengambil semua pin, menyertakan data user (eager loading), 
+        // Mengambil semua pin, menyertakan data user (eager loading),
         // diurutkan dari yang terbaru, dan dipaginasi 20 item per halaman.
-        $pins = \App\Models\Pin::with('user')->latest()->paginate(20);
+        $pins = \App\Models\Pin::with("user")->latest()->paginate(20);
 
         // Pastikan path view sesuai dengan folder Anda: resources/views/explore/explore.blade.php
-        return view('explore.explore', compact('pins'));
+        return view("explore.explore", compact("pins"));
     }
 }
