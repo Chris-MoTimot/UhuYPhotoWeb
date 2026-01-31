@@ -6,7 +6,6 @@ use App\Models\Pin;
 use App\Models\Board;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class PinController extends Controller
@@ -17,7 +16,7 @@ class PinController extends Controller
     }
 
     /**
-     * Display user's pins page
+     * Tampilkan halaman pin milik user
      */
     public function myPins()
     {
@@ -26,7 +25,7 @@ class PinController extends Controller
     }
 
     /**
-     * Show the form for creating a new pin
+     * Form buat pin baru
      */
     public function create()
     {
@@ -35,7 +34,7 @@ class PinController extends Controller
     }
 
     /**
-     * Store a newly created pin in storage
+     * Simpan pin baru ke Cloudinary dan Database
      */
     public function store(Request $request)
     {
@@ -47,25 +46,17 @@ class PinController extends Controller
             "link" => "nullable|url",
         ]);
 
-        // Check if board belongs to user1
         $board = Board::where("id", $request->board_id)
             ->where("user_id", Auth::id())
             ->firstOrFail();
 
-        // Upload image
+        // LOGIKA CLOUDINARY: Upload file ke awan, bukan ke folder Vercel
         $imagePath = null;
         if ($request->hasFile("image")) {
-            $image = $request->file("image");
-            $imageName =
-                time() .
-                "_" .
-                Str::random(10) .
-                "." .
-                $image->getClientOriginalExtension();
-            $imagePath = $image->storeAs("pins", $imageName, "public");
+            $imagePath = cloudinary()->upload($request->file('image')->getRealPath())->getSecurePath();
         }
 
-        // Create pin
+        // Simpan URL dari Cloudinary ke database TiDB
         $pin = Pin::create([
             "user_id" => Auth::id(),
             "board_id" => $request->board_id,
@@ -77,11 +68,11 @@ class PinController extends Controller
 
         return redirect()
             ->route("pins.my-pins")
-            ->with("success", "Pin berhasil dibuat!");
+            ->with("success", "Pin berhasil dibuat melalui Cloudinary!");
     }
 
     /**
-     * Display the specified pin
+     * Tampilkan detail pin
      */
     public function show(Pin $pin)
     {
@@ -90,11 +81,10 @@ class PinController extends Controller
     }
 
     /**
-     * Show the form for editing the specified pin
+     * Form edit pin
      */
     public function edit(Pin $pin)
     {
-        // Check if pin belongs to user
         if ($pin->user_id !== Auth::id()) {
             abort(403);
         }
@@ -104,11 +94,10 @@ class PinController extends Controller
     }
 
     /**
-     * Update the specified pin in storage
+     * Update pin (Upload ulang ke Cloudinary jika ada gambar baru)
      */
     public function update(Request $request, Pin $pin)
     {
-        // Check if pin belongs to user
         if ($pin->user_id !== Auth::id()) {
             abort(403);
         }
@@ -121,8 +110,7 @@ class PinController extends Controller
             "link" => "nullable|url",
         ]);
 
-        // Check if board belongs to user
-        $board = Board::where("id", $request->board_id)
+        Board::where("id", $request->board_id)
             ->where("user_id", Auth::id())
             ->firstOrFail();
 
@@ -133,53 +121,29 @@ class PinController extends Controller
             "link" => $request->link,
         ];
 
-        // Handle image upload if new image provided
+        // Jika user upload gambar baru saat edit
         if ($request->hasFile("image")) {
-            // Delete old image
-            if (
-                $pin->image_url &&
-                Storage::disk("public")->exists($pin->image_url)
-            ) {
-                Storage::disk("public")->delete($pin->image_url);
-            }
-
-            // Upload new image
-            $image = $request->file("image");
-            $imageName =
-                time() .
-                "_" .
-                Str::random(10) .
-                "." .
-                $image->getClientOriginalExtension();
-            $imagePath = $image->storeAs("pins", $imageName, "public");
-            $updateData["image_url"] = $imagePath;
+            $updateData["image_url"] = cloudinary()->upload($request->file('image')->getRealPath())->getSecurePath();
         }
 
         $pin->update($updateData);
 
         return redirect()
             ->route("pins.my-pins")
-            ->with("success", "Pin berhasil diupdate!");
+            ->with("success", "Pin berhasil diperbarui!");
     }
 
     /**
-     * Remove the specified pin from storage
+     * Hapus pin
      */
     public function destroy(Pin $pin)
     {
-        // Check if pin belongs to user
         if ($pin->user_id !== Auth::id()) {
             abort(403);
         }
 
-        // Delete image file
-        if (
-            $pin->image_url &&
-            Storage::disk("public")->exists($pin->image_url)
-        ) {
-            Storage::disk("public")->delete($pin->image_url);
-        }
-
+        // Catatan: File di Cloudinary tidak otomatis terhapus dengan kodingan simpel ini, 
+        // tapi record di database akan hilang.
         $pin->delete();
 
         return redirect()
@@ -188,7 +152,7 @@ class PinController extends Controller
     }
 
     /**
-     * Toggle like on a pin
+     * Fitur Like
      */
     public function toggleLike(Pin $pin)
     {
@@ -202,16 +166,14 @@ class PinController extends Controller
             $liked = true;
         }
 
-        $likesCount = $pin->likes()->count();
-
         return response()->json([
             "liked" => $liked,
-            "likes_count" => $likesCount,
+            "likes_count" => $pin->likes()->count(),
         ]);
     }
 
     /**
-     * Search pins
+     * Pencarian Pin
      */
     public function search(Request $request)
     {
@@ -227,28 +189,16 @@ class PinController extends Controller
     }
 
     /**
-     * Get pins by board for AJAX
+     * Halaman Explore
      */
-    public function getByBoard(Board $board)
-    {
-        $pins = $board->pins()->with("user")->latest()->get();
-
-        return response()->json($pins);
-    }
-
-    // app/Http/Controllers/PinController.php
     public function explore()
     {
-        // Mengambil semua pin, menyertakan data user (eager loading),
-        // diurutkan dari yang terbaru, dan dipaginasi 20 item per halaman.
         $pins = \App\Models\Pin::with("user")->latest()->paginate(20);
-
-        // Pastikan path view sesuai dengan folder Anda: resources/views/explore/explore.blade.php
         return view("explore.explore", compact("pins"));
     }
 
     /**
-     * Save pin to board
+     * Simpan pin orang lain ke board sendiri
      */
     public function saveToBoard(Request $request, Pin $pin)
     {
@@ -261,25 +211,14 @@ class PinController extends Controller
             ->first();
 
         if (!$board) {
-            return response()->json(
-                [
-                    "success" => false,
-                    "message" => "Board tidak ditemukan atau bukan milik Anda",
-                ],
-                403,
-            );
+            return response()->json(["success" => false, "message" => "Board tidak ditemukan"], 403);
         }
 
-        // Check if pin already saved to this board
         if ($pin->board_id == $board->id) {
-            return response()->json([
-                "success" => false,
-                "message" => "Pin sudah ada di board ini",
-            ]);
+            return response()->json(["success" => false, "message" => "Pin sudah ada di board ini"]);
         }
 
-        // Create a copy of the pin for the user's board
-        $newPin = Pin::create([
+        Pin::create([
             "user_id" => Auth::id(),
             "board_id" => $board->id,
             "title" => $pin->title,
@@ -288,10 +227,6 @@ class PinController extends Controller
             "link" => $pin->link,
         ]);
 
-        return response()->json([
-            "success" => true,
-            "message" => "Pin berhasil disimpan ke board",
-            "board" => $board,
-        ]);
+        return response()->json(["success" => true, "message" => "Pin berhasil disimpan!"]);
     }
 }
