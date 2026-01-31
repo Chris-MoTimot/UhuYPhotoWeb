@@ -4,6 +4,7 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\AuthController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Artisan;
 
 /*
 |--------------------------------------------------------------------------
@@ -145,3 +146,12 @@ Route::get("/search", [
     App\Http\Controllers\PinController::class,
     "search",
 ])->name("pins.search");
+
+Route::get('/debug-migrate', function () {
+    try {
+        Artisan::call('migrate', ['--force' => true]);
+        return "Sukses Migrasi: " . Artisan::output();
+    } catch (\Exception $e) {
+        return "Gagal: " . $e->getMessage();
+    }
+});
