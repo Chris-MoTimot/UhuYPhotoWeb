@@ -816,5 +816,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
     images.forEach(img => imageObserver.observe(img));
 });
+
+// Tunggu sampai semua elemen (termasuk gambar Cloudinary) selesai dimuat total
+window.addEventListener('load', function() {
+    const grid = document.querySelector('.pinterest-grid');
+    if (grid) {
+        // Trik memaksa browser menghitung ulang layout masonry setelah gambar muncul
+        grid.style.display = 'none';
+        grid.offsetHeight; // Trigger reflow
+        grid.style.display = 'block';
+        console.log("Grid layout refreshed after image load.");
+    }
+});
 </script>
 @endsection
