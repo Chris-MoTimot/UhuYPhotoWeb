@@ -261,13 +261,6 @@
 </div>
 
 <style>
-/* Pinterest-style Masonry Grid */
-.pinterest-grid {
-    column-count: 5;
-    column-gap: 1.5rem;
-    column-fill: balance;
-}
-
 @media (max-width: 1536px) {
     .pinterest-grid { column-count: 4; }
 }
